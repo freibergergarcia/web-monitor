@@ -1,9 +1,19 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
 	"os"
+	"strconv"
+	"strings"
+	"time"
 )
+
+const monitoring = 3
+const sleepTime = 5
 
 func main() {
 
@@ -11,12 +21,13 @@ func main() {
 	chooseAnOption()
 
 	action := readOption()
+	sites := getSites()
 
 	switch action {
 	case 1:
-		fmt.Println("Monitoring...")
+		startMonitor(sites)
 	case 2:
-		fmt.Println("Showing logs...")
+		printLog()
 	case 0:
 		fmt.Println("Bye!")
 		os.Exit(0)
@@ -46,4 +57,83 @@ func readOption() int {
 	fmt.Println("Option chosen:", action)
 
 	return action
+}
+
+func startMonitor(sites []string) {
+	fmt.Println("Monitoring...")
+
+	for i := 0; i < monitoring; i++ {
+		for _, site := range sites {
+			testSite(site)
+		}
+		time.Sleep(sleepTime * time.Second)
+		fmt.Println("Waiting", sleepTime, "seconds...")
+	}
+}
+
+func getSites() []string {
+	sites := readSitesFromFile()
+
+	return sites
+}
+
+func testSite(site string) {
+	resp, err := http.Get(site)
+
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+
+	if resp.StatusCode == 200 {
+		fmt.Println("Site:", site, "is up and returned a", resp.StatusCode)
+		registerLog(site, true)
+	} else {
+		fmt.Println("Site:", site, "returned an unsuccessfull status code", resp.StatusCode)
+		registerLog(site, false)
+	}
+}
+
+func readSitesFromFile() []string {
+	var sites []string
+
+	sitesConf, err := os.Open("conf/sites.txt")
+	if err != nil {
+		fmt.Println("An error has ocurred", err)
+	}
+
+	reader := bufio.NewReader(sitesConf)
+	for {
+		line, err := reader.ReadString('\n')
+		line = strings.TrimSpace(line)
+
+		sites = append(sites, line)
+
+		if err == io.EOF {
+			break
+		}
+	}
+	sitesConf.Close()
+
+	return sites
+}
+
+func registerLog(site string, status bool) {
+	log, err := os.OpenFile("logs/log.txt", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+
+	if err != nil {
+		fmt.Println("Something went wrong", err)
+	}
+	log.WriteString(time.Now().Format("02/01/2006 15:04:05") + " " + site + " - online: " + strconv.FormatBool(status) + "\n")
+
+	log.Close()
+}
+
+func printLog() {
+	fmt.Println("Showing logs...")
+	fileLog, err := ioutil.ReadFile("logs/log.txt")
+
+	if err != nil {
+		fmt.Println("Couldn't open the file", err)
+	}
+	fmt.Println(string(fileLog))
 }

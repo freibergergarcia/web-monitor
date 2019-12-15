@@ -39,8 +39,4 @@ Hey Bruno choose an option
 1 - Start monitoring
 2 - Show logs
 0 - Exit
-2
-Option chosen: 2
-Showing logs...
-➜  web-monitor git:(master) ✗
 ```
